@@ -60,20 +60,25 @@ def extract_text(file_path):
 # ---------- PARSING LOGIC ----------
 
 def extract_name(text):
-    lines = text.split("\n")[:7]  # only top of resume
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
 
-    for line in lines:
-        line = line.strip()
-        if not line:
+    # 1️⃣ Heuristic: very first line (most resumes put name there)
+    first_line = lines[0]
+    if (
+        len(first_line.split()) <= 4
+        and not any(char.isdigit() for char in first_line)
+        and not first_line.isupper()
+    ):
+        return first_line
+
+    # 2️⃣ spaCy NER on top lines only
+    for line in lines[:7]:
+        if line.isupper() or any(char.isdigit() for char in line):
             continue
-        # skip headings and skill titles
-        if line.isupper():
-            continue
-        if len(line.split()) <= 4:
-            doc = nlp(line)
-            for ent in doc.ents:
-                if ent.label_ == "PERSON":
-                    return ent.text
+        doc = nlp(line)
+        for ent in doc.ents:
+            if ent.label_ == "PERSON" and len(ent.text.split()) <= 4:
+                return ent.text
 
     return "Not Found"
 
