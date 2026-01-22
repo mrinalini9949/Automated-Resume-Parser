@@ -60,11 +60,23 @@ def extract_text(file_path):
 # ---------- PARSING LOGIC ----------
 
 def extract_name(text):
-    doc = nlp(text)
-    for ent in doc.ents:
-        if ent.label_ == "PERSON":
-            return ent.text
-    return None
+    lines = text.split("\n")[:7]  # only top of resume
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        # skip headings and skill titles
+        if line.isupper():
+            continue
+        if len(line.split()) <= 4:
+            doc = nlp(line)
+            for ent in doc.ents:
+                if ent.label_ == "PERSON":
+                    return ent.text
+
+    return "Not Found"
+
 
 def extract_phone(text):
     phone_regex = re.compile(r'\+?\d[\d\s\-()]{8,}\d')
