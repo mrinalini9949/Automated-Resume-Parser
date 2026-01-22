@@ -101,7 +101,7 @@ def parse_resume(file_path):
 # ---------- MAIN TEST ----------
 
 if __name__ == "__main__":
-    file_path =  'resume.pdf'  # or .docx
-    parsed = parse_resume(file_path)
-    for key, value in parsed.items():
-        print(f"{key}: {value}\n")
+   file_path = 'sample_resumes/resume.pdf'
+parsed = parse_resume(file_path)
+for key, value in parsed.items():
+      print(f"{key}: {value}\n")
