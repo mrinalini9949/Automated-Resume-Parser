@@ -1,0 +1,119 @@
+import pytesseract
+from PIL import Image
+import pdf2image
+import pdfplumber
+import docx
+import re
+import spacy
+import json
+import os
+
+# ---------------- SETUP ----------------
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+nlp = spacy.load("en_core_web_sm")
+
+# ---------------- TEXT EXTRACTION ----------------
+
+def extract_text_from_docx(path):
+    doc = docx.Document(path)
+    return "\n".join([p.text for p in doc.paragraphs])
+
+def extract_text_from_pdf(path):
+    text = ""
+    try:
+        with pdfplumber.open(path) as pdf:
+            for page in pdf.pages:
+                if page.extract_text():
+                    text += page.extract_text() + "\n"
+    except:
+        pass
+    return text
+
+def extract_text_from_pdf_ocr(path):
+    images = pdf2image.convert_from_path(path)
+    text = ""
+    for img in images:
+        text += pytesseract.image_to_string(img)
+    return text
+
+def extract_text(file_path):
+    if file_path.endswith(".pdf"):
+        text = extract_text_from_pdf(file_path)
+        if not text.strip():
+            text = extract_text_from_pdf_ocr(file_path)
+    elif file_path.endswith(".docx"):
+        text = extract_text_from_docx(file_path)
+    else:
+        raise ValueError("Unsupported format")
+    return text
+
+# ---------------- PARSING FUNCTIONS ----------------
+
+def extract_name(text):
+    doc = nlp(text)
+    for ent in doc.ents:
+        if ent.label_ == "PERSON":
+            return ent.text
+    return "Not Found"
+
+def extract_email(text):
+    match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", text)
+    return match.group() if match else "Not Found"
+
+def extract_phone(text):
+    match = re.search(r"\+?\d[\d\s\-()]{8,}\d", text)
+    return match.group() if match else "Not Found"
+
+def extract_skills(text):
+    skills = [
+        "python", "java", "c++", "sql", "html", "css", "javascript",
+        "react", "node", "git", "linux", "aws", "docker"
+    ]
+    text = text.lower()
+    return [skill for skill in skills if skill in text]
+
+def extract_education(text):
+    keywords = ["b.tech", "b.e", "bachelor", "master", "degree", "university", "college"]
+    lines = text.split("\n")
+    education = [l for l in lines if any(k in l.lower() for k in keywords)]
+    return education[:3]
+
+def extract_experience(text):
+    keywords = ["experience", "intern", "internship", "project", "worked", "role"]
+    lines = text.split("\n")
+    return [l for l in lines if any(k in l.lower() for k in keywords)][:5]
+
+def calculate_resume_score(skills):
+    return min(len(skills) * 10, 100)
+
+# ---------------- MAIN PARSER ----------------
+
+def parse_resume(file_path):
+    text = extract_text(file_path)
+
+    parsed = {
+        "Name": extract_name(text),
+        "Email": extract_email(text),
+        "Phone": extract_phone(text),
+        "Skills": extract_skills(text),
+        "Education": extract_education(text),
+        "Experience": extract_experience(text),
+        "Resume Score (%)": calculate_resume_score(extract_skills(text))
+    }
+
+    return parsed
+
+# ---------------- RUN ----------------
+
+if __name__ == "__main__":
+    file_path = "sample_resumes/resume.pdf"
+
+    output = parse_resume(file_path)
+
+    os.makedirs("output", exist_ok=True)
+    with open("output/parsed_output.json", "w") as f:
+        json.dump(output, f, indent=4)
+
+    print("\n✅ RESUME PARSED SUCCESSFULLY\n")
+    for k, v in output.items():
+        print(f"{k}: {v}")
